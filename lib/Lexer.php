@@ -37,7 +37,7 @@ class Lexer {
         $this->_consume($index + 1);
         $token += array('attrs' => array());
 
-        $parse = function($char) use ($token, $states, $key, $val) {
+        $parse = function($char) use (&$token, &$states, &$key, &$val) {
             $quote = '';
             switch ( $char ) {
                 case ',':
@@ -166,18 +166,19 @@ class Lexer {
     }
 
     protected function _code() {
-        $matches = array();
         $pattern = '/^(!?=|-)([^\n]+)/';
-        if ( preg_match($pattern, $this->_input, $matches) ) {
-            $this->_consume(mb_strlen($matches[0]));
-            $flags = $matches[1];
-            $token = $this->_tok('code', $matches[2]);
-            $token += array(
-                'escape' => ( $flags[0]  === '=' ),
-                'buffer' => ( $flags[0]  === '=' || $flags[1] === '=' )
-            )
-            return $token;
+        if ( !preg_match($pattern, $this->_input, $matches) ) {
+            return false;
         }
+
+        $this->_consume(mb_strlen($matches[0]));
+        $flags = $matches[1];
+        $token = $this->_tok('code', $matches[2]);
+        $token += array(
+            'escape' => ( $flags[0]  === '=' ),
+            'buffer' => ( $flags[0]  === '=' || $flags[1] === '=' )
+        )
+        return $token;
     }
 
     protected function _colon() {
@@ -185,16 +186,17 @@ class Lexer {
     }
 
     protected function _comment() {
-        $matches = array();
         $pattern = '/^ *\/\/(-)?([^\n]*)/';
-        if ( preg_match($pattern, $this->_input, $matches) ) {
-            $this->_consume(mb_strlen($matches[0]));
-            $token = $this->_tok('comment', $matches[2]);
-            $token += array(
-                'buffer' => ( $matches[1] != '-' )
-            );
-            return $token;
+        if ( !preg_match($pattern, $this->_input, $matches) ) {
+            return false;
         }
+
+        $this->_consume(mb_strlen($matches[0]));
+        $token = $this->_tok('comment', $matches[2]);
+        $token += array(
+            'buffer' => ( $matches[1] != '-' )
+        );
+        return $token;
     }
 
     protected function _consume($length) {
@@ -213,6 +215,7 @@ class Lexer {
         if ( mb_strlen($this->_input) ) {
             return false;
         }
+
         if ( count($this->_indent_stack) ) {
             array_shift($this->_indent_stack);
             return $this->_tok('outdent');
@@ -226,12 +229,12 @@ class Lexer {
     }
 
     protected function _get_delimiter_index($start, $end) {
-        $start = $end = $pos = 0;
+        $start_num = $end_num = $pos = 0;
         $length = mb_strlen($this->_input);
         for ( $i = 0; $i < $length; ++$i ) {
             if ( $this->_input[$i] == $start ) {
-                ++$start;
-            } elseif ( $this->_input[$i] == $end && $start == ++$end ) {
+                ++$start_num;
+            } elseif ( $this->_input[$i] == $end && $start_num == ++$end_num ) {
                 return $i;
             }
         }
@@ -247,7 +250,6 @@ class Lexer {
     }
 
     protected function _indent() {
-        $matches = array();
         if ( $this->_indent_re ) {
             preg_match($this->_indent_re, $this->_input, $matches);
         } else {
@@ -358,31 +360,30 @@ class Lexer {
     }
 
     protected function _scan($regex, $type) {
-        $matches = array();
-        if ( preg_match($regex, $this->_input, $matches) ) {
-            $this->_consume(mb_strlen($matches[0]));
-            return $this->_tok($type, $matches[1]);
+        if ( !preg_match($regex, $this->_input, $matches) ) {
+            return false;
         }
+
+        $this->_consume(mb_strlen($matches[0]));
+        return $this->_tok($type, $matches[1]);
     }
 
     protected function _tag() {
         $pattern = '/^(\w[-:\w]*)/';
-        $matches = array();
-        if ( preg_match($pattern, $this->_input, $matches) ) {
-            $this->_consume(mb_strlen($matches[0]));
-            $name = $matches[1];
-            if ( $name[mb_strlen($name) - 1] == ':' ) {
-                $name = mb_substr($name, 0, -1);
-                $token = $this->_tok('tag', $name);
-                $this->_deferred_tokens[] = $this->_tok(':');
-                while ( $this->_input[0] == ' ' ) {
-                    $this->_input = mb_substr($this->_input, 1);
-                }
-            } else {
-                $token = $this->_tok('tag', $name);
-            }
-            return $token;
+        if ( !preg_match($pattern, $this->_input, $matches) ) {
+            return false;
         }
+
+        $this->_consume(mb_strlen($matches[0]));
+        $name = $matches[1];
+        if ( $name[mb_strlen($name) - 1] == ':' ) {
+            $name = mb_substr($name, 0, -1);
+            $this->_deferred_tokens[] = $this->_tok(':');
+            $this->_input = ltrim($this->_input);
+        }
+
+        $token = $this->_tok('tag', $name);
+        return $token;
     }
 
     protected function _text() {
