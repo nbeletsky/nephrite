@@ -18,6 +18,10 @@ class Lexer {
 
     protected $_stash = array();
 
+    public function advance() {
+        return $this->_stashed() || $this->_next();
+    }
+
     protected function _attrs() {
         $index = 0;
         $length = 0;
@@ -29,7 +33,7 @@ class Lexer {
         if ( $this->_input[0] == '(' ) {
             $index = $this->_get_delimiter_index('(', ')');
             $str = mb_substr($this->_input, 1, $index - 1);
-            $token = $this->_tok('attrs');
+            $token = $this->tok('attrs');
             $length = mb_strlen($str);
             $states = array('key');
         }
@@ -173,7 +177,7 @@ class Lexer {
 
         $this->_consume(mb_strlen($matches[0]));
         $flags = $matches[1];
-        $token = $this->_tok('code', $matches[2]);
+        $token = $this->tok('code', $matches[2]);
         $token += array(
             'escape' => ( $flags[0]  === '=' ),
             'buffer' => ( $flags[0]  === '=' || $flags[1] === '=' )
@@ -192,7 +196,7 @@ class Lexer {
         }
 
         $this->_consume(mb_strlen($matches[0]));
-        $token = $this->_tok('comment', $matches[2]);
+        $token = $this->tok('comment', $matches[2]);
         $token += array(
             'buffer' => ( $matches[1] != '-' )
         );
@@ -201,6 +205,12 @@ class Lexer {
 
     protected function _consume($length) {
         $this->_input = mb_substr($this->_input, $length);
+    }
+
+    public function defer($token) {
+        $this->_deferred_tokens[] = $token;
+    }
+
     }
 
     protected function _deferred() {
@@ -218,10 +228,10 @@ class Lexer {
 
         if ( count($this->_indent_stack) ) {
             array_shift($this->_indent_stack);
-            return $this->_tok('outdent');
+            return $this->tok('outdent');
         }
 
-        return $this->_tok('eos');
+        return $this->tok('eos');
     }
 
     protected function _filter() {
@@ -239,6 +249,10 @@ class Lexer {
             }
         }
         return $pos;
+    }
+
+    public function get_line_no() {
+        return $this->_line_no;
     }
 
     protected function _id() {
@@ -281,21 +295,21 @@ class Lexer {
 
             // Blank line
             if ( $this->_input[0] == "\n" ) {
-                return $this->_tok('newline');
+                return $this->tok('newline');
             }
 
             // Outdent
             if ( count($this->_indent_stack) && $this->_indent_stack[0] > $indents ) {
                 while ( count($this->_indent_stack) && $indents < $this->_indent_stack[0]) {
-                    $this->_stash[] = $this->_tok('outdent');
+                    $this->_stash[] = $this->tok('outdent');
                     array_shift($this->_indent_stack);
                 }
                 $token = array_pop($this->_stash);
             } elseif ( $indents && $this->_indent_stack[0] != $indents ) {
                 array_unshift($this->_indent_stack, $indents);
-                $token = $this->_tok('indent', $indents);
+                $token = $this->tok('indent', $indents);
             } else {
-                $token = $this->_tok('newline');
+                $token = $this->tok('newline');
             }
 
             return $token;
@@ -356,7 +370,7 @@ class Lexer {
         }
         $to_consume = mb_substr($this->_input, 0, $index);
         $this->_consume(mb_strlen($to_consume));
-        return $this->_tok('text', $to_consume);
+        return $this->tok('text', $to_consume);
     }
 
     protected function _scan($regex, $type) {
@@ -365,7 +379,11 @@ class Lexer {
         }
 
         $this->_consume(mb_strlen($matches[0]));
-        return $this->_tok($type, $matches[1]);
+        return $this->tok($type, $matches[1]);
+    }
+
+    protected function _stashed() {
+        return ( count($this->_stash) && array_shift($this->_stash) );
     }
 
     protected function _tag() {
@@ -378,11 +396,11 @@ class Lexer {
         $name = $matches[1];
         if ( $name[mb_strlen($name) - 1] == ':' ) {
             $name = mb_substr($name, 0, -1);
-            $this->_deferred_tokens[] = $this->_tok(':');
+            $this->_deferred_tokens[] = $this->tok(':');
             $this->_input = ltrim($this->_input);
         }
 
-        $token = $this->_tok('tag', $name);
+        $token = $this->tok('tag', $name);
         return $token;
     }
 
@@ -390,7 +408,7 @@ class Lexer {
         return $this->_scan('/^(?:\| ?)?([^\n]+)/', 'text');
     }
 
-    protected function _tok($type, $val) {
+    public function tok($type, $val) {
         return array(
             'type' => $type,
             'line' => $this->_line_no,
