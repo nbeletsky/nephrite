@@ -12,11 +12,17 @@ class Lexer {
 
     protected $_input;
 
+    protected $_last_indents = 0;
+
     protected $_line_no = 1;
 
     protected $_pipeless = false;
 
     protected $_stash = array();
+
+    public function __construct($str) {
+        $this->_input = preg_replace('/\r\n|\r/g', "\n", $str);
+    }
 
     public function advance() {
         return $this->_stashed() || $this->_next();
@@ -339,7 +345,7 @@ class Lexer {
              '_include',
             // '_mixin',   // not implemented
             '_tag',
-            '_filter',
+            // '_filter',  // not implemented
             // '_each',    // not implemented
             '_code',
             '_id',
@@ -380,6 +386,10 @@ class Lexer {
 
         $this->_consume(mb_strlen($matches[0]));
         return $this->tok($type, $matches[1]);
+    }
+
+    protected function set_pipeless($val) {
+        $this->_pipeless = $val;
     }
 
     protected function _stashed() {

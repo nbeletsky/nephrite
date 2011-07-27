@@ -4,15 +4,13 @@ namespace node;
 
 use node\Block;
 
-class Filter {
+class Filter extends Node {
 
     protected $_attrs;
 
     protected $_block;
 
     protected $_is_AST_filter;
-
-    protected $_line;
 
     protected $_name;
 
@@ -24,9 +22,6 @@ class Filter {
 
     }
 
-    public function set_line($num) {
-        $this->_line = $num;
-    }
 }
 
 ?>
