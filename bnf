@@ -1,36 +1,59 @@
-<tag>                  :: ( <div> | <alpha> ) [ <tag-text> ] | <text-only> 
-<comment>              :: <buffered-comment> | <unbuffered-comment> | <block-comment> | <conditional-comment>
+<line> :: <tag> | <comment> | <doctype> | <code> | <include> | <mixin>
 
-<buffered-comment>     :: "//" <char>
-<unbuffered-comment>   :: "//-" <char>
-<block-comment>        :: "//" <indent> <tag>
-<conditional-comment>  :: "//if " <char> <indent> <tag>
-         
-<div>                  :: "div" [ <id> | <class>+ ]  | <id> | <class>+
-<id>                   :: "#" <alphanum> [ <extra> ]
-<class>                :: "." <alphanum> [ <extra> ]
+<tag>     :: ( <div> | <alpha> ) [ <attribute> ] [ <tag-text> ] | <text-only> 
+<comment> :: <buffered-comment> | <unbuffered-comment> | <block-comment> | <conditional-comment>
+<doctype> :: ( "!!!" | "doctype" ) ( "5" | "xml" | "default" | "transitional" | "strict" | "frameset" | "1.1" | "basic" | "mobile" )
+<code>    :: ( <interpolation> | <php> ) 
+<include> :: "include " <char>
+<mixin>   :: <mixin-define> || <mixin-include>
 
-<alphanum>             :: <alpha> | <digit> 
-<alpha>                :: <upper-case> | <lower-case>
-<upper-case>           :: "A" | ... | "Z"
-<lower-case>           :: "a" | ... | "z"
-<digit>                :: "0" | ... | "9"
-<extra>                :: "-" | "_" 
 
-<tag-text>             :: <text> | ":" ( <div> | <alpha> ) <text> | <indent> <text-block> | <indent> <tag>
+<div>   :: "div" [ <id> | <class>+ ]  | <id> | <class>+
+<id>    :: "#" <alphanum> [ <extra> ]
+<class> :: "." <alphanum> [ <extra> ]
 
-<text>                 :: <char> [ <interpolation> ]
+<alphanum>   :: <alpha> | <digit> 
+<alpha>      :: <upper-case> | <lower-case>
+<upper-case> :: "A" | ... | "Z"
+<lower-case> :: "a" | ... | "z"
+<digit>      :: "0" | ... | "9"
+<extra>      :: "-" | "_" 
 
-<text-block>           :: "| " <text>
-<char>                 :: <any US-ASCII character (octets 0 - 127)>
+<attribute>  :: "(" <key-value> | <text> ")" [ "," ]
+<key-value>  :: <text> "=" ( '"' <text> '"' | "'" <text> "'" )
+
+<tag-text> :: <text> | ":" ( <div> | <alpha> ) <text> | <indent> <text-block> | <indent> <tag>
+<text>     :: <char> [ <interpolation> ]
+
+<text-block> :: "| " <text>
+<char>       :: <any US-ASCII character (octets 0 - 127)>
 
 <interpolation>        :: <output-interpolation> | <escape-interpolation>
 <output-interpolation> :: "{{" <variable> "}}"
 <variable>             :: "$" ( <alphanum> | "_" )
 <escape-interpolation> :: "\" <output-interpolation>
 
-<text-only>            :: ( <text-only-tags> | ( <div> | <alpha> ) "." ) <indent> <text>
-<text-only-tags>       :: "code" | "script" | "textarea" | "style" | "title"
+<text-only>      :: ( <text-only-tags> [ <attribute> ] | ( <div> | <alpha> ) [ <attribute> ] "." ) <indent> <text>
+<text-only-tags> :: "code" | "script" | "textarea" | "style" | "title"
 
-<indent>               :: "\n" <tab>
-<tab>                  :: "\t" | "  "
+<indent> :: "\n" <tab>
+<tab>    :: "\t" | "  "
+
+<buffered-comment>    :: "//" <char>
+<unbuffered-comment>  :: "//-" <char>
+<block-comment>       :: "//" <indent> <tag>
+<conditional-comment> :: "//if " <char> <indent> <tag>
+
+<php>       :: "- " ( <char> | <if> | <elseif> | <else> | <while> | <for> | <foreach> | <switch> | <case> )
+<if>        :: "if " <statement> <indent>
+<elseif>    :: "else" <if> <indent>
+<else>      :: "else" <indent>
+<while>     :: "while " <statement> <indent>
+<for>       :: "for " <statement> <indent>
+<foreach>   :: "foreach" <statement> <indent>
+<switch>    :: "switch" <statement> <indent>
+<case>      :: "case " <char> | "default"
+<statement> :: "(" <char> ")"
+
+<mixin-define>  :: "mixin " <text> <indent> <line>
+<mixin-include> :: "mixin " <text>
