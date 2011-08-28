@@ -1,0 +1,36 @@
+<tag>                  :: ( <div> | <alpha> ) [ <tag-text> ] | <text-only> 
+<comment>              :: <buffered-comment> | <unbuffered-comment> | <block-comment> | <conditional-comment>
+
+<buffered-comment>     :: "//" <char>
+<unbuffered-comment>   :: "//-" <char>
+<block-comment>        :: "//" <indent> <tag>
+<conditional-comment>  :: "//if " <char> <indent> <tag>
+         
+<div>                  :: "div" [ <id> | <class>+ ]  | <id> | <class>+
+<id>                   :: "#" <alphanum> [ <extra> ]
+<class>                :: "." <alphanum> [ <extra> ]
+
+<alphanum>             :: <alpha> | <digit> 
+<alpha>                :: <upper-case> | <lower-case>
+<upper-case>           :: "A" | ... | "Z"
+<lower-case>           :: "a" | ... | "z"
+<digit>                :: "0" | ... | "9"
+<extra>                :: "-" | "_" 
+
+<tag-text>             :: <text> | ":" ( <div> | <alpha> ) <text> | <indent> <text-block> | <indent> <tag>
+
+<text>                 :: <char> [ <interpolation> ]
+
+<text-block>           :: "| " <text>
+<char>                 :: <any US-ASCII character (octets 0 - 127)>
+
+<interpolation>        :: <output-interpolation> | <escape-interpolation>
+<output-interpolation> :: "{{" <variable> "}}"
+<variable>             :: "$" ( <alphanum> | "_" )
+<escape-interpolation> :: "\" <output-interpolation>
+
+<text-only>            :: ( <text-only-tags> | ( <div> | <alpha> ) "." ) <indent> <text>
+<text-only-tags>       :: "code" | "script" | "textarea" | "style" | "title"
+
+<indent>               :: "\n" <tab>
+<tab>                  :: "\t" | "  "
