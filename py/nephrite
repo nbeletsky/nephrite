@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+
+import parser
+import sys
+
+if __name__ == '__main__':
+    result = parser.parse(sys.argv[1])
+    print(result)
