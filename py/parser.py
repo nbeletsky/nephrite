@@ -1,5 +1,68 @@
 import os
 import re
+from pyparsing import *
+
+grammar = '''
+<source> :: <tag> | <comment> | <doctype> | <code> | <include> | <mixin>
+
+<tag>     :: ( <div> | <alpha> ) [ <attribute> ] [ <tag-text> ] | <text-only> 
+<comment> :: <buffered-comment> | <unbuffered-comment> | <block-comment> | <conditional-comment>
+<doctype> :: ( "!!!" | "doctype" ) [ "5" | "html" | "xml" | "default" | "transitional" | "strict" | "frameset" | "1.1" | "basic" | "mobile" ]
+<code>    :: ( <interpolation> | <php> ) 
+<include> :: "include " <char>
+<mixin>   :: <mixin-define> || <mixin-include>
+
+
+<div>   :: "div" [ <id> | <class>+ ]  | <id> | <class>+
+<id>    :: "#" <alphanum> [ <extra> ]
+<class> :: "." <alphanum> [ <extra> ]
+
+<alphanum>   :: <alpha> | <digit> 
+<alpha>      :: <upper-case> | <lower-case>
+<upper-case> :: "A" | ... | "Z"
+<lower-case> :: "a" | ... | "z"
+<digit>      :: "0" | ... | "9"
+<extra>      :: "-" | "_" 
+
+<attribute>  :: "(" <key-value> | <text> ")" [ "," ]
+<key-value>  :: <text> "=" ( '"' <text> '"' | "'" <text> "'" )
+
+<tag-text> :: <text> | ":" ( <div> | <alpha> ) <text> | <indent> <text-block> | <indent> <tag>
+<text>     :: <char> [ <interpolation> ]
+
+<text-block> :: "| " <text>
+<char>       :: <any US-ASCII character (octets 0 - 127)>
+
+<interpolation>        :: <output-interpolation> | <escape-interpolation>
+<output-interpolation> :: "{{" <variable> "}}"
+<variable>             :: "$" ( <alphanum> | "_" )
+<escape-interpolation> :: "\" <output-interpolation>
+
+<text-only>      :: ( <text-only-tags> [ <attribute> ] | ( <div> | <alpha> ) [ <attribute> ] "." ) <indent> <text>
+<text-only-tags> :: "code" | "script" | "textarea" | "style" | "title"
+
+<indent> :: "\n" <tab>
+<tab>    :: "\t" | "  "
+
+<buffered-comment>    :: "//" <char>
+<unbuffered-comment>  :: "//-" <char>
+<block-comment>       :: "//" <indent> <tag>
+<conditional-comment> :: "//if " <char> <indent> <tag>
+
+<php>       :: "- " ( <char> | <if> | <elseif> | <else> | <while> | <for> | <foreach> | <switch> | <case> )
+<if>        :: "if " <statement> <indent>
+<elseif>    :: "else" <if> <indent>
+<else>      :: "else" <indent>
+<while>     :: "while " <statement> <indent>
+<for>       :: "for " <statement> <indent>
+<foreach>   :: "foreach" <statement> <indent>
+<switch>    :: "switch" <statement> <indent>
+<case>      :: "case " <char> | "default"
+<statement> :: "(" <char> ")"
+
+<mixin-define>  :: "mixin " <text> <indent> <line>
+<mixin-include> :: "mixin " <text>
+'''
 
 def parse(input):
     '''Parses a file.
@@ -13,19 +76,32 @@ def parse(input):
 
     if os.path.isfile(input):
         with open(input, encoding='utf-8') as file:
-            return ''.join([detect_token(line) for line in file])
+            return detect_token(file.read())
     else: 
-        return ''.join([detect_token(line) for line in input.splitlines()])
+        # TODO: This should really throw an exception here,
+        # especially because parse_include calls this
+        return detect_token(input)
 
-def detect_token(line):
-    # Doctype
-    return parse_doctype(line) \
-        or parse_tag(line) \
-        or ''
+def detect_token(jade):
+
+    print(jade)
+    doctype = oneOf('!!! doctype') + Optional(oneOf('5 html xml default' \
+            + 'transitional strict frameset 1.1 basic mobile'))
+    doctype.setResultsName('doctype')
+    doctype.setParseAction(parse_doctype)
+    
+    include = Suppress(Literal('include')) + Word(alphanums + '_' + '/')
+    include.setResultsName('include')
+    include.setParseAction(parse_include)
+
+    # TODO: This is wrong
+    source = ZeroOrMore(doctype) + ZeroOrMore(include)
+    parsed = source.parseString(jade)
+
+    return ' '.join(parsed)
 
 def parse_doctype(line):
-    if not line.startswith('!!!') and not line.startswith('doctype'):
-        return False
+    line = " ".join(line)
 
     doctypes = {
         '5': '<!DOCTYPE html>',
@@ -40,15 +116,13 @@ def parse_doctype(line):
         'mobile': '<!DOCTYPE html PUBLIC "-//WAPFORUM//DTD XHTML Mobile 1.2//EN" "http://www.openmobilealliance.org/tech/DTD/xhtml-mobile12.dtd">'
     }
 
-    if line == '!!!':
-        return doctypes['5']
+    if line == '!!!' or line == 'doctype':
+        return doctypes['transitional']
 
     left, right = line.split(' ', 1)
-    type = right.strip().lower() 
-    return doctypes.get(type, doctypes['5'])
+    doctype = right.strip().lower() 
+    return doctypes.get(doctype, doctypes['default'])
 
-def parse_tag(line):
-    match = re.search('^(\w[-:\w]*)', line)
-    if not match:
-        return False
-    return match.group(1)
+def parse_include(results):
+    print(results.include + '.jade')
+    return parse(results.include + '.jade')

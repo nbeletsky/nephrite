@@ -1,4 +1,4 @@
-<line> :: <tag> | <comment> | <doctype> | <code> | <include> | <mixin>
+<source> :: <tag> | <comment> | <doctype> | <code> | <include> | <mixin>
 
 <tag>     :: ( <div> | <alpha> ) [ <attribute> ] [ <tag-text> ] | <text-only> 
 <comment> :: <buffered-comment> | <unbuffered-comment> | <block-comment> | <conditional-comment>
