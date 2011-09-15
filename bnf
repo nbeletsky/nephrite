@@ -2,7 +2,7 @@
 
 <tag>     :: ( <div> | <alpha> ) [ <attribute> ] [ <tag-text> ] | <text-only> 
 <comment> :: <buffered-comment> | <unbuffered-comment> | <block-comment> | <conditional-comment>
-<doctype> :: ( "!!!" | "doctype" ) [ "5" | "xml" | "default" | "transitional" | "strict" | "frameset" | "1.1" | "basic" | "mobile" ]
+<doctype> :: ( "!!!" | "doctype" ) [ "5" | "html" | "xml" | "default" | "transitional" | "strict" | "frameset" | "1.1" | "basic" | "mobile" ]
 <code>    :: ( <interpolation> | <php> ) 
 <include> :: "include " <char>
 <mixin>   :: <mixin-define> || <mixin-include>
