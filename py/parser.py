@@ -3,26 +3,26 @@ import re
 from pyparsing import *
 
 grammar = '''
-<source> :: <tag> | <comment> | <doctype> | <code> | <include> | <mixin>
+<line> :: <tag> | <comment> | <doctype> | <code> | <include> | <mixin>
 
-<tag>     :: ( <div> | <alpha> ) [ <attribute> ] [ <tag-text> ] | <text-only> 
+<tag>     :: ( <div> | <alpha> ) [ <attribute> ] [ <tag-text> ] | <text-only>
 <comment> :: <buffered-comment> | <unbuffered-comment> | <block-comment> | <conditional-comment>
 <doctype> :: ( "!!!" | "doctype" ) [ "5" | "html" | "xml" | "default" | "transitional" | "strict" | "frameset" | "1.1" | "basic" | "mobile" ]
-<code>    :: ( <interpolation> | <php> ) 
+<code>    :: ( <interpolation> | <php> )
 <include> :: "include " <char>
 <mixin>   :: <mixin-define> || <mixin-include>
 
 
-<div>   :: "div" [ <id> | <class>+ ]  | <id> | <class>+
-<id>    :: "#" <alphanum> [ <extra> ]
-<class> :: "." <alphanum> [ <extra> ]
+<div>   :: "div" [ <div_id> ] [ <div_class>+ ]  | <div_id> | <div_class>+
+<div_id>    :: "#" <alphanum> [ <extra> ]
+<div_class> :: "." <alphanum> [ <extra> ]
 
-<alphanum>   :: <alpha> | <digit> 
+<alphanum>   :: <alpha> | <digit>
 <alpha>      :: <upper-case> | <lower-case>
 <upper-case> :: "A" | ... | "Z"
 <lower-case> :: "a" | ... | "z"
 <digit>      :: "0" | ... | "9"
-<extra>      :: "-" | "_" 
+<extra>      :: "-" | "_"
 
 <attribute>  :: "(" <key-value> | <text> ")" [ "," ]
 <key-value>  :: <text> "=" ( '"' <text> '"' | "'" <text> "'" )
@@ -77,31 +77,61 @@ def parse(input):
     if os.path.isfile(input):
         with open(input, encoding='utf-8') as file:
             return detect_token(file.read())
-    else: 
-        # TODO: This should really throw an exception here,
-        # especially because parse_include calls this
+    else:
         return detect_token(input)
 
 def detect_token(jade):
 
-    print(jade)
+    char = Word(printables)
+    variable = Literal('$') + Word(alphanums + '_')
+
+    output_interpolation = Literal('{{') + variable + Literal('}}')
+    escape_interpolation = Literal('\\') + output_interpolation
+    interpolation = output_interpolation | escape_interpolation
+    text = char + ZeroOrMore(interpolation)
+
+    text_block = Literal("| ") + text
+
     doctype = oneOf('!!! doctype') + Optional(oneOf('5 html xml default' \
-            + 'transitional strict frameset 1.1 basic mobile'))
+            + 'transitional strict frameset 1.1 basic mobile', True))
     doctype.setResultsName('doctype')
     doctype.setParseAction(parse_doctype)
-    
-    include = Suppress(Literal('include')) + Word(alphanums + '_' + '/')
+
+    extra = ZeroOrMore('-') + ZeroOrMore('_')
+
+    div_id = Literal('#') + Word(alphanums + extra)
+    div_id.setResultsName('div_id')
+    div_class = Literal('.') + Word(alphanums + extra)
+    div_class.setResultsName('div_class')
+
+    div = (Suppress('div') + Optional(div_id) + ZeroOrMore(div_class)) \
+        | div_id | ZeroOrMore(div_class)
+    div.setResultsName('div')
+
+    key_value = text + Literal("=") \
+        + (Literal("'") + text + Literal("'") | Literal('"') + text + Literal('"'))
+    key_value.setResultsName('key_value')
+
+    attribute = Suppress('(') + (key_value | text) + Suppress(')') + Optional(',')
+
+    # TODO: Fix/finish
+    tag = (div | Word(alpha)) + ZeroOrMore(attribute)
+
+
+
+
+    include = Suppress(Literal('include')) + char
     include.setResultsName('include')
     include.setParseAction(parse_include)
 
-    # TODO: This is wrong
-    source = ZeroOrMore(doctype) + ZeroOrMore(include)
+    line = doctype | include
+    source = OneOrMore(line)
     parsed = source.parseString(jade)
 
     return ' '.join(parsed)
 
-def parse_doctype(line):
-    line = " ".join(line)
+def parse_doctype(results):
+    results = " ".join(results)
 
     doctypes = {
         '5': '<!DOCTYPE html>',
@@ -116,13 +146,15 @@ def parse_doctype(line):
         'mobile': '<!DOCTYPE html PUBLIC "-//WAPFORUM//DTD XHTML Mobile 1.2//EN" "http://www.openmobilealliance.org/tech/DTD/xhtml-mobile12.dtd">'
     }
 
-    if line == '!!!' or line == 'doctype':
+    if results == '!!!' or results == 'doctype':
         return doctypes['transitional']
 
-    left, right = line.split(' ', 1)
-    doctype = right.strip().lower() 
+    left, right = results.split(' ', 1)
+    doctype = right.strip().lower()
     return doctypes.get(doctype, doctypes['default'])
 
 def parse_include(results):
-    print(results.include + '.jade')
-    return parse(results.include + '.jade')
+    include = ''.join(results) + '.jade'
+    if not os.path.isfile(include):
+        raise ParseFatalException("File `%s` not found." % include)
+    return parse(include)

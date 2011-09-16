@@ -1,4 +1,4 @@
-<source> :: <tag> | <comment> | <doctype> | <code> | <include> | <mixin>
+<line> :: <tag> | <comment> | <doctype> | <code> | <include> | <mixin>
 
 <tag>     :: ( <div> | <alpha> ) [ <attribute> ] [ <tag-text> ] | <text-only> 
 <comment> :: <buffered-comment> | <unbuffered-comment> | <block-comment> | <conditional-comment>
@@ -8,9 +8,9 @@
 <mixin>   :: <mixin-define> || <mixin-include>
 
 
-<div>   :: "div" [ <id> | <class>+ ]  | <id> | <class>+
-<id>    :: "#" <alphanum> [ <extra> ]
-<class> :: "." <alphanum> [ <extra> ]
+<div>   :: "div" [ <div_id> | <div_class>+ ]  | <div_id> | <div_class>+
+<div_id>    :: "#" <alphanum> [ <extra> ]
+<div_class> :: "." <alphanum> [ <extra> ]
 
 <alphanum>   :: <alpha> | <digit> 
 <alpha>      :: <upper-case> | <lower-case>
