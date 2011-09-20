@@ -111,30 +111,30 @@ def detect_token(jade):
         | (OneOrMore(element_class).setResultsName('element_class') \
         + Optional(element_id).setResultsName('element_id')) \
 
-    attribute = Suppress('(') \
-        + ZeroOrMore(Word(printables, excludeChars=[')'])) \
-        + Suppress(')')
     # TODO: Parse interpolation in parse_attribute
     #attribute.setParseAction(parse_attribute)
+    attribute = nestedExpr()
 
     element = selectors | (Word(alphas) + Optional(selectors))
 
     tag = Forward()
 
-    tag_text = (Literal(':') + element + text) | (indent + text_block) \
-        | (indent + tag.setResultsName('tag')) | text
+    indent_stack = [1]
+    tag_text = (Literal(':') + element + text) \
+        | indentedBlock(text_block, indent_stack) \
+        | indentedBlock(tag, indent_stack) | text
 
     text_only_tags = oneOf('code script textarea style title', True)
     text_only_tags.setResultsName('text_only_tags')
 
     text_only = ((text_only_tags + ZeroOrMore(attribute)) \
-        | (element + ZeroOrMore(attribute) + Literal('.'))) \
-        + indent + text
+        | (element + ZeroOrMore(attribute) + Suppress('.'))) \
+        + OneOrMore(indentedBlock(OneOrMore(text), indent_stack))
 
-    tag << ((element.setResultsName('element') \
+    tag << (text_only.setResultsName('text_only') \
+        | (element.setResultsName('element') \
         + ZeroOrMore(attribute).setResultsName('attribute') \
-        + ZeroOrMore(tag_text).setResultsName('tag_text')) \
-        | text_only.setResultsName('text_only'))
+        + ZeroOrMore(tag_text).setResultsName('tag_text')))
     tag.setParseAction(parse_tag)
 
     include = Suppress(Literal('include')) + char
