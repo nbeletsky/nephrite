@@ -12,11 +12,11 @@ grammar = '''
 <include> :: "include " <char>
 <mixin>   :: <mixin-define> || <mixin-include>
 
-<element>    :: <div> | <alpha>
+<element>    :: <selectors> | <alpha> [<selectors>]
 
-<div>       :: "div" [ <div_id> ] [ <div_class>+ ]  | <div_id> | <div_class>+
-<div_id>    :: "#" <alphanum> [ <extra> ]
-<div_class> :: "." <alphanum> [ <extra> ]
+<selectors>   :: <element_id> <element_class>* | <element_class>+ [ <element_id> ]
+<element_id>    :: "#" <alphanum> [ <extra> ]
+<element_class> :: "." <alphanum> [ <extra> ]
 
 <alphanum>   :: <alpha> | <digit>
 <alpha>      :: <upper-case> | <lower-case>
@@ -25,10 +25,8 @@ grammar = '''
 <digit>      :: "0" | ... | "9"
 <extra>      :: "-" | "_"
 
-<attribute>  :: "(" ( <key-value> | <text> ) [ "," ] ")"
-<key-value>  :: <key> "=" ( '"' <text> '"' | "'" <text> "'" )
+<attribute>  :: "(" <char> ")"
 
-<key>      :: <alpha> [ <interpolation> ]
 <tag-text> :: <text> | ":" <element> <text> | <indent> <text-block> | <indent> <tag>
 <text>     :: <char> [ <interpolation> ]
 
@@ -90,40 +88,41 @@ def detect_token(jade):
     output_interpolation = Combine(Literal('{{') + variable + Literal('}}'))
     escape_interpolation = Combine(Literal('\\') + output_interpolation)
     interpolation = output_interpolation | escape_interpolation
-    text = char + ZeroOrMore(interpolation).setResultsName('interpolation')
+    # TODO: Parse interpolation in parse_text
+    #text = char + ZeroOrMore(interpolation).setResultsName('interpolation')
+    text = char
 
     text_block = Literal("| ") + text
 
     tab = Literal('\t') | Literal('  ')
-    indent = Literal('\n') + tab
+    #indent = Literal('\n') + tab
+    # TODO: Fix this
+    indent = lineEnd.suppress() + empty + empty
 
     doctype = oneOf('!!! doctype') + Optional(oneOf('5 html xml default' \
             + 'transitional strict frameset 1.1 basic mobile', True))
     doctype.setParseAction(parse_doctype)
 
-    div_id = Combine(Literal('#') + Word(alphanums + '_' + '-'))
-    div_class = Combine(Literal('.') + Word(alphanums + '_' + '-'))
+    element_id = Combine(Suppress('#') + Word(alphanums + '_' + '-'))
+    element_class = Combine(Suppress('.') + Word(alphanums + '_' + '-'))
 
-    div = (Literal('div') + Optional(div_id).setResultsName('id') \
-        + ZeroOrMore(div_class).setResultsName('class')) \
-        | div_id.setResultsName('id') \
-        | OneOrMore(div_class).setResultsName('class')
-
-    key = Word(alphas) + ZeroOrMore(interpolation).setResultsName('interpolation')
-    key_value = Combine(key + Literal("=") \
-        + ((Literal("'") + text + Literal("'")) | (Literal('"') + text + Literal('"'))))
+    selectors = (element_id.setResultsName('element_id') \
+        + ZeroOrMore(element_class).setResultsName('element_class')) \
+        | (OneOrMore(element_class).setResultsName('element_class') \
+        + Optional(element_id).setResultsName('element_id')) \
 
     attribute = Suppress('(') \
-        + ZeroOrMore((key_value | text) + Suppress(',')) \
-        + (key_value | text) \
+        + ZeroOrMore(Word(printables, excludeChars=[')'])) \
         + Suppress(')')
+    # TODO: Parse interpolation in parse_attribute
+    #attribute.setParseAction(parse_attribute)
 
-    element = div | Word(alphas)
+    element = selectors | (Word(alphas) + Optional(selectors))
 
     tag = Forward()
 
-    tag_text = text | (Literal(':') + element + text) | (indent + text_block) \
-        | (indent + tag)
+    tag_text = (Literal(':') + element + text) | (indent + text_block) \
+        | (indent + tag.setResultsName('tag')) | text
 
     text_only_tags = oneOf('code script textarea style title', True)
     text_only_tags.setResultsName('text_only_tags')
