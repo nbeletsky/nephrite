@@ -94,8 +94,6 @@ def detect_token(jade):
 
     text_block = Literal("| ") + text
 
-    tab = Literal('\t') | Literal('  ')
-    #indent = Literal('\n') + tab
     # TODO: Fix this
     indent = lineEnd.suppress() + empty + empty
 
@@ -112,8 +110,8 @@ def detect_token(jade):
         + Optional(element_id).setResultsName('element_id')) \
 
     # TODO: Parse interpolation in parse_attribute
-    #attribute.setParseAction(parse_attribute)
     attribute = nestedExpr()
+    attribute.setParseAction(parse_attribute)
 
     element = selectors | (Word(alphas) + Optional(selectors))
 
@@ -127,14 +125,15 @@ def detect_token(jade):
     text_only_tags = oneOf('code script textarea style title', True)
     text_only_tags.setResultsName('text_only_tags')
 
-    text_only = ((text_only_tags + ZeroOrMore(attribute)) \
-        | (element + ZeroOrMore(attribute) + Suppress('.'))) \
-        + OneOrMore(indentedBlock(OneOrMore(text), indent_stack))
+    text_only = ((text_only_tags + Optional(attribute)) \
+        | (element + Optional(attribute).setResultsName('attribute') \
+        + Suppress('.'))) \
+        + OneOrMore(indentedBlock(OneOrMore(text), indent_stack).setResultsName('text_only_text'))
 
     tag << (text_only.setResultsName('text_only') \
         | (element.setResultsName('element') \
-        + ZeroOrMore(attribute).setResultsName('attribute') \
-        + ZeroOrMore(tag_text).setResultsName('tag_text')))
+        + Optional(attribute).setResultsName('attribute') \
+        + Optional(tag_text).setResultsName('tag_text')))
     tag.setParseAction(parse_tag)
 
     include = Suppress(Literal('include')) + char
@@ -147,6 +146,9 @@ def detect_token(jade):
     print(parsed.dump() + '\n')
 
     return ' '.join(parsed)
+
+def parse_attribute(orig, loc, toks):
+    return ' '.join(toks[0])
 
 def parse_doctype(orig, loc, toks):
     results = ' '.join(toks)
